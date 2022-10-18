@@ -190,8 +190,9 @@ int handle_kfree_skbmem(struct kprobe *p, struct pt_regs *regs)
 static struct kprobe kp = {
 	.pre_handler = handle_kfree_skbmem,
 	.post_handler = NULL,
-	.fault_handler = NULL,
-	.addr = NULL,
+	.symbol_name	= "kfree_skbmem",
+	/*.fault_handler = NULL,*/
+	/*.addr = NULL,*/
 };
 
 static
@@ -222,15 +223,19 @@ int __init net_latency_tp_init(void)
 			probe_kfree_skb, NULL);
 	WARN_ON(ret);
 
-	kfree_skbmem_sym =
+	/*kfree_skbmem_sym =
 		(void *) kallsyms_lookup_funcptr("kfree_skbmem");
 	if (!kfree_skbmem_sym) {
 		printk("Failed to hook a kprobe on kfree_skbmem");
 		ret = 0;
 		goto end;
 	}
-	kp.addr = (kprobe_opcode_t *) kfree_skbmem_sym;
-	register_kprobe(&kp);
+	kp.addr = (kprobe_opcode_t *) kfree_skbmem_sym;*/
+	ret = register_kprobe(&kp);
+	if (ret < 0) {
+		pr_err("register_kprobe failed, returned %d\n", ret);
+		return ret;
+	}
 
 	ret = 0;
 	goto end;

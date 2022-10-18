@@ -168,7 +168,7 @@ struct latency_tracker {
 	atomic_t wakeup_readers;
 
 	/* GC and resize work */
-        struct timer_list timer;
+    struct timer_list timer;
 	struct workqueue_struct *resize_q;
 	struct work_struct resize_w;
 

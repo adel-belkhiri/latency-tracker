@@ -56,47 +56,29 @@ void latency_tracker_debugfs_cleanup(void)
 
 int setup_default_entries(struct latency_tracker *tracker)
 {
-	struct dentry *dir;
-	int ret;
 
-	dir = debugfs_create_u64("threshold", S_IRUSR|S_IWUSR,
+	debugfs_create_u64("threshold", S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir, &tracker->threshold);
-	if (!dir)
-		goto error;
 
-	dir = debugfs_create_u64("timeout", S_IRUSR|S_IWUSR,
+	debugfs_create_u64("timeout", S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir, &tracker->timeout);
-	if (!dir)
-		goto error;
 
-	dir = debugfs_create_u32("worst_threshold", S_IRUSR|S_IWUSR,
+	debugfs_create_u32("worst_threshold", S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir,
 			&tracker->worst_threshold);
-	if (!dir)
-		goto error;
 
-	dir = debugfs_create_tracking_on(S_IRUSR|S_IWUSR,
+	debugfs_create_tracking_on(S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir, tracker);
-	if (!dir)
-		goto error;
 
-	dir = debugfs_create_alloc_size(S_IRUSR|S_IWUSR,
+	debugfs_create_alloc_size(S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir, tracker);
-	if (!dir)
-		goto error;
 
-	dir = debugfs_create_allocate(S_IRUSR|S_IWUSR,
+	debugfs_create_allocate(S_IRUSR|S_IWUSR,
 			tracker->debugfs_instance_dir, tracker);
-	if (!dir)
-		goto error;
 
-	ret = latency_tracker_debugfs_setup_stats(tracker);
-	if (ret)
-		goto error;
+	latency_tracker_debugfs_setup_stats(tracker);
 
 	return 0;
-error:
-	return -1;
 }
 
 static
@@ -153,7 +135,7 @@ int release_wakeup_pipe(struct inode *inode, struct file *filp)
 static
 const struct file_operations wakeup_pipe_fops = {
 	.open           = open_wakeup_pipe,
-	.release	= release_wakeup_pipe,
+	.release		= release_wakeup_pipe,
 	.read           = read_wakeup_pipe,
 	.llseek         = default_llseek,
 	/* TODO: poll */
@@ -462,7 +444,7 @@ static
 const struct file_operations fops_alloc_size = {
 	.open           = open_int,
 	.read           = alloc_size_read,
-	.write		= alloc_size_write,
+	.write			= alloc_size_write,
 	.llseek         = default_llseek,
 };
 
@@ -514,7 +496,7 @@ static
 const struct file_operations fops_allocate = {
 	.open           = open_int,
 	.read           = allocate_read,
-	.write		= allocate_write,
+	.write			= allocate_write,
 	.llseek         = default_llseek,
 };
 

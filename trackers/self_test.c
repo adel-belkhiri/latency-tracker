@@ -41,15 +41,19 @@ int __init self_test_init(void)
 	if (ret)
 		goto error;
 
-	ret = latency_tracker_set_timer_period(tracker, 100*1000*1000);
-	if (ret)
-		goto error;
-
 	ret = latency_tracker_set_key_size(tracker, strlen(k1) + 1);
 	if (ret)
 		goto error;
 
-	ret = latency_tracker_allocate(tracker);
+	ret = latency_tracker_set_timer_period(tracker, 100*1000*1000);
+	if (ret)
+		goto error;
+
+	//ret = latency_tracker_allocate(tracker);
+	//if (ret)
+	//	goto error;
+
+	ret = latency_tracker_set_tracking_on(tracker, 1, 1);
 	if (ret)
 		goto error;
 
@@ -58,7 +62,7 @@ int __init self_test_init(void)
 		ret = latency_tracker_event_in(tracker, k1, strlen(k1) + 1,
 				0, NULL);
 		if (ret)
-			printk("failed\n");
+			printk("failed (ret=%u)\n", ret);
 	}
 
 	printk("insert k2\n");

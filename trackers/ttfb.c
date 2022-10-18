@@ -81,7 +81,7 @@ int get_peers_data(int fd, int *family, char *saddr4, char *saddr6,
 {
 	struct files_struct *files = current->files;
 	struct socket *sock;
-	int *err = NULL;
+	//int *err = NULL;
 	struct fd f;
 	int ret = -1;
 	struct inet_sock *inet;
@@ -92,7 +92,7 @@ int get_peers_data(int fd, int *family, char *saddr4, char *saddr6,
 	if (!f.file)
 		goto end;
 
-	sock = sock_from_file(f.file, err);
+	sock = sock_from_file(f.file);
 	if (!sock)
 		goto end_put;
 
@@ -210,7 +210,9 @@ LT_PROBE_DEFINE(syscall_enter, struct pt_regs *regs, long id)
 	case __NR_write:
 	case __NR_writev:
 		fd = fd_from_regs(regs);
-		file = fcheck_files(current->files, fd);
+		rcu_read_lock();
+		file = files_lookup_fd_rcu(current->files, fd);
+		rcu_read_unlock();
 		if (!file)
 			return;
 		key.f_inode = file->f_inode;
@@ -219,7 +221,9 @@ LT_PROBE_DEFINE(syscall_enter, struct pt_regs *regs, long id)
 	case __NR_close:
 	case __NR_shutdown:
 		fd = fd_from_regs(regs);
-		file = fcheck_files(current->files, fd);
+		rcu_read_lock();
+		file = files_lookup_fd_rcu(current->files, fd);
+		rcu_read_unlock();
 		if (!file)
 			return;
 		x = atomic_long_read(&file->f_count);
@@ -252,7 +256,9 @@ LT_PROBE_DEFINE(syscall_exit, struct pt_regs *regs, long ret)
 	case __NR_accept:
 #endif
 	case __NR_accept4:
-		file = fcheck_files(current->files, ret);
+		rcu_read_lock();
+		file = files_lookup_fd_rcu(current->files, ret);
+		rcu_read_unlock();
 		if (!file)
 			return;
 		key.f_inode = file->f_inode;

@@ -321,8 +321,8 @@
 /* Copied from include/linux/rcupdate.h 3.18+ */
 #define lockless_dereference(p) \
 ({ \
-        typeof(p) _________p1 = ACCESS_ONCE(p); \
-        smp_read_barrier_depends(); /* Dependency order vs. p above. */ \
+        typeof(p) _________p1 = CMM_ACCESS_ONCE(p); \
+        cmm_smp_read_barrier_depends(); /* Dependency order vs. p above. */ \
         (_________p1); \
 })
 #endif /* lockless_dereference */

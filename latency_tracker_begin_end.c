@@ -110,12 +110,12 @@ ssize_t lt_end_write(struct file *file, const char __user *user_buf,
 	return lttng_logger_write(file, user_buf, count, ppos, 0);
 }
 
-static const struct file_operations lt_begin_operations = {
-	.write = lt_begin_write,
+static const struct proc_ops lt_begin_operations = {
+	.proc_write = lt_begin_write,
 };
 
-static const struct file_operations lt_end_operations = {
-	.write = lt_end_write,
+static const struct proc_ops lt_end_operations = {
+	.proc_write = lt_end_write,
 };
 
 int __init lttng_logger_init(void)

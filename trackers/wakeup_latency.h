@@ -44,7 +44,7 @@ struct wakeup_tracker {
 	struct proc_dir_entry *proc_dentry;
 };
 
-static const struct file_operations wakeup_tracker_fops;
+static const struct proc_ops wakeup_tracker_fops;
 
 int tracker_proc_release(struct inode *inode, struct file *filp);
 int tracker_proc_open(struct inode *inode, struct file *filp);
@@ -59,12 +59,12 @@ void wakeup_handle_proc(struct wakeup_tracker *wakeup_priv,
 		uint64_t end_ts);
 
 static const
-struct file_operations wakeup_tracker_fops = {
-	.owner = THIS_MODULE,
-	.open = tracker_proc_open,
-	.read = tracker_proc_read,
-	.release = tracker_proc_release,
-	.poll = tracker_proc_poll,
+struct proc_ops wakeup_tracker_fops = {
+	/*.proc_owner = THIS_MODULE,*/
+	.proc_open = tracker_proc_open,
+	.proc_read = tracker_proc_read,
+	.proc_release = tracker_proc_release,
+	.proc_poll = tracker_proc_poll,
 };
 
 #endif /* _TP_WAKEUP_LATENCY_H */

@@ -49,10 +49,10 @@ DEFINE_PER_CPU(struct iohist, current_hist);
 struct iohist global_live_hist;
 
 static struct proc_dir_entry *block_hist_tracker_proc_dentry;
-static const struct file_operations block_hist_tracker_fops;
+static const struct proc_ops block_hist_tracker_fops;
 
 static struct proc_dir_entry *block_hist_tracker_history_proc_dentry;
-static const struct file_operations block_hist_tracker_history_fops;
+static const struct proc_ops block_hist_tracker_history_fops;
 
 static void enable_hist_timer(struct block_hist_tracker *b);
 
@@ -130,7 +130,7 @@ LT_PROBE_DEFINE(block_rq_insert, struct request_queue *q,
 	rq_cnt++;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-	if ((req_op(rq) == REQ_OP_SCSI_IN) || (req_op(rq) == REQ_OP_SCSI_OUT))
+	if ((req_op(rq) == REQ_OP_DRV_IN) || (req_op(rq) == REQ_OP_DRV_OUT))
 #else
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 #endif
@@ -168,7 +168,7 @@ LT_PROBE_DEFINE(block_rq_issue, struct request_queue *q,
 	rq_cnt++;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-	if ((req_op(rq) == REQ_OP_SCSI_IN) || (req_op(rq) == REQ_OP_SCSI_OUT))
+	if ((req_op(rq) == REQ_OP_DRV_IN) || (req_op(rq) == REQ_OP_DRV_OUT))
 #else
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 #endif
@@ -248,7 +248,7 @@ void merge_reset_per_cpu_live_hist(struct iohist *h)
 	struct iohist *c;
 	unsigned long flags;
 
-	get_online_cpus();
+	cpus_read_lock();
 	for_each_online_cpu(cpu) {
 		c = per_cpu_ptr(&live_hist, cpu);
 		spin_lock_irqsave(&c->lock, flags);
@@ -260,7 +260,7 @@ void merge_reset_per_cpu_live_hist(struct iohist *h)
 		}
 		spin_unlock_irqrestore(&c->lock, flags);
 	}
-	put_online_cpus();
+	cpus_read_unlock();
 }
 
 static
@@ -336,7 +336,7 @@ LT_PROBE_DEFINE(block_rq_complete, struct request_queue *q,
 		return;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-	if ((req_op(rq) == REQ_OP_SCSI_IN) || (req_op(rq) == REQ_OP_SCSI_OUT))
+	if ((req_op(rq) == REQ_OP_DRV_IN) || (req_op(rq) == REQ_OP_DRV_OUT))
 #else
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 #endif
@@ -613,21 +613,21 @@ int tracker_history_proc_open(struct inode *inode, struct file *filp)
 }
 
 static const
-struct file_operations block_hist_tracker_fops = {
-	.owner = THIS_MODULE,
-	.open = tracker_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+struct proc_ops block_hist_tracker_fops = {
+	//.owner = THIS_MODULE,
+	.proc_open = tracker_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static const
-struct file_operations block_hist_tracker_history_fops = {
-	.owner = THIS_MODULE,
-	.open = tracker_history_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+struct proc_ops block_hist_tracker_history_fops = {
+	//.owner = THIS_MODULE,
+	.proc_open = tracker_history_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static
@@ -656,7 +656,7 @@ void merge_reset_per_cpu_current_hist(struct iohist *h)
 	struct iohist *c;
 	unsigned long flags;
 
-	get_online_cpus();
+	cpus_read_lock();
 	for_each_online_cpu(cpu) {
 		c = per_cpu_ptr(&current_hist, cpu);
 		if (h->ts_begin == 0)
@@ -673,15 +673,20 @@ void merge_reset_per_cpu_current_hist(struct iohist *h)
 		c->ts_begin = 0;
 		spin_unlock_irqrestore(&c->lock, flags);
 	}
-	put_online_cpus();
+	cpus_read_unlock();
 	h->ts_end = trace_clock_read64();
 }
 
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static
-void timer_cb(unsigned long ptr)
-{
+void timer_cb(unsigned long ptr) {
 	struct block_hist_tracker *b = (struct block_hist_tracker *) ptr;
+#else
+static
+void timer_cb(struct timer_list *timer_p)
+{
+	struct block_hist_tracker *b = from_timer(b, timer_p, timer);
+#endif
 
 	memset(&b->latency_history[b->current_min], 0, sizeof(struct iohist));
 	merge_reset_per_cpu_current_hist(&b->latency_history[b->current_min]);
@@ -695,6 +700,7 @@ void enable_hist_timer(struct block_hist_tracker *b)
 {
 	del_timer(&b->timer);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	b->timer.function = timer_cb;
 	/* 60 seconds */
 	b->timer.expires = jiffies + wrapper_nsecs_to_jiffies(60000000000);
@@ -702,6 +708,12 @@ void enable_hist_timer(struct block_hist_tracker *b)
 	//b->timer.expires = jiffies + wrapper_nsecs_to_jiffies(10000000000);
 	//b->timer.expires = jiffies + wrapper_nsecs_to_jiffies(1000000000);
 	b->timer.data = (unsigned long) b;
+#else
+	int ret = mod_timer(&b->timer, jiffies + wrapper_nsecs_to_jiffies(60000000000) /*msecs_to_jiffies(2000)*/);
+	if (ret)
+		pr_err("%s: Timer firing failed\n", __func__);
+#endif
+	
 	add_timer(&b->timer);
 }
 
@@ -730,7 +742,12 @@ int __init block_hist_latency_tp_init(void)
 	latency_tracker_set_key_size(tracker, MAX_KEY_SIZE);
 
 	init_histograms();
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	init_timer(&block_hist_priv->timer);
+#else
+	timer_setup(&block_hist_priv->timer, timer_cb, 0);
+#endif
+
 	block_hist_priv->current_min = 0;
 	enable_hist_timer(block_hist_priv);
 

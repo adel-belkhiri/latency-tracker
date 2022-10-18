@@ -118,11 +118,13 @@ int latency_tracker_set_priv(struct latency_tracker *tracker, void *priv);
 /* default: 0 */
 int latency_tracker_set_timer_period(struct latency_tracker *tracker, uint64_t
 		timer_period);
+uint64_t latency_tracker_get_timer_period(struct latency_tracker *tracker);
 /*
  * nanoseconds default: 0 */
 int latency_tracker_set_timeout(struct latency_tracker *tracker, uint64_t
 		timeout);
 uint64_t latency_tracker_get_timeout(struct latency_tracker *tracker);
+
 /*
  * nanoseconds default: DEFAULT_THRESHOLD
  */

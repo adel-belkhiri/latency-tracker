@@ -26,50 +26,7 @@
 #include <linux/kallsyms.h>
 #include "kallsyms.h"
 
-static inline
-const char *wrapper_kallsyms_lookup(unsigned long addr,
-		unsigned long *symbolsize,
-		unsigned long *offset,
-		char **modname, char *namebuf)
-{
-	const char *(*kallsyms_lookup_sym)(unsigned long addr,
-			unsigned long *symbolsize,
-			unsigned long *offset,
-			char **modname, char *namebuf);
-
-	kallsyms_lookup_sym = (void *) kallsyms_lookup_funcptr("kallsyms_lookup");
-	if (kallsyms_lookup_sym) {
-		return kallsyms_lookup_sym(addr, symbolsize, offset, modname,
-				namebuf);
-	} else {
-		return NULL;
-	}
-}
-
-static inline
-unsigned long wrapper_sys_call_table(int nr)
-{
-	unsigned long *sys_call_table_sym;
-
-	sys_call_table_sym = (void *) kallsyms_lookup_dataptr("sys_call_table");
-	if (sys_call_table_sym) {
-		return (unsigned long) sys_call_table_sym[nr];
-	} else {
-		return 0;
-	}
-}
-
-static inline
-int wrapper_get_syscall_name(int nr, char *buf)
-{
-	unsigned long addr;
-
-	addr = wrapper_sys_call_table(nr);
-	if (!addr)
-		return -1;
-	wrapper_kallsyms_lookup(addr, NULL, NULL, NULL, buf);
-	return 0;
-}
+int wrapper_get_syscall_name(int nr, char *buf);
 #else
 
 #include <linux/vmalloc.h>
@@ -89,6 +46,13 @@ unsigned long wrapper_sys_call_table(int nr)
 	return 0;
 }
 
+/**
+ * @brief buf size shoud be 128 or larger
+ *
+ * @param nr
+ * @param buf
+ * @return int
+ */
 static inline
 int wrapper_get_syscall_name(int nr, char *buf)
 {

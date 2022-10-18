@@ -59,6 +59,7 @@ int syscall_tracker_setup_proc_priv(struct syscall_tracker *tracker_priv)
   tracker_priv->proc_dentry = proc_create_data(SYSCALL_TRACKER_PROC,
       S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
       NULL, &syscall_tracker_fops, tracker_priv);
+	  
   if (!tracker_priv->proc_dentry) {
     printk(KERN_ERR "Error creating syscalls tracker control file.\n");
     ret = -ENOMEM;

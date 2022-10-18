@@ -1384,7 +1384,7 @@ void sched_switch_out(struct task_struct *prev, struct task_struct *next)
 		 * means that it is still actively working on an event, so we
 		 * continue tracking its state until it blocks.
 		 */
-		if (prev->state == TASK_RUNNING) {
+		if (prev->__state == TASK_RUNNING) {
 			struct event_data *data;
 
 			append_delta_ts(event, KEY_SWITCH, "to switch_out_preempt",
@@ -1664,7 +1664,7 @@ LT_PROBE_DEFINE(tracker_begin, char *tp_data, size_t len)
 static
 int setup_debugfs_extras(void)
 {
-	struct dentry *file;
+	//struct dentry *file;
 	static struct dentry *filters_dir, *actions_dir;
 	int ret;
 
@@ -1678,57 +1678,37 @@ int setup_debugfs_extras(void)
 	if (!actions_dir)
 		goto error;
 
-	file = debugfs_create_u32("timer_tracing",
+	debugfs_create_u32("timer_tracing",
 			S_IRUSR|S_IWUSR, filters_dir, &config.timer_tracing);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("irq_tracing",
+	debugfs_create_u32("irq_tracing",
 			S_IRUSR|S_IWUSR, filters_dir, &config.irq_tracing);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("nr_duplicates_max",
+	debugfs_create_u32("nr_duplicates_max",
 			S_IRUSR|S_IWUSR, filters_dir,
 			&config.nr_duplicates_max);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("output_switch_out_blocked",
+	debugfs_create_u32("output_switch_out_blocked",
 			S_IRUSR|S_IWUSR, filters_dir,
 			&config.output_switch_out_blocked);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("out_work_done",
+	debugfs_create_u32("out_work_done",
 			S_IRUSR|S_IWUSR, filters_dir, &config.out_work_done);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("enter_userspace",
+	debugfs_create_u32("enter_userspace",
 			S_IRUSR|S_IWUSR, filters_dir, &config.enter_userspace);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_u32("text_breakdown",
+	debugfs_create_u32("text_breakdown",
 			S_IRUSR|S_IWUSR, filters_dir, &config.text_breakdown);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_file("procname", S_IRUSR,
+	debugfs_create_file("procname", S_IRUSR,
 			filters_dir, &config, &procname_filter_fops);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_int("irq_filter",
+	debugfs_create_int("irq_filter",
 			S_IRUSR|S_IWUSR, filters_dir, &config.irq_filter);
-	if (!file)
-		goto error;
 
-	file = debugfs_create_int("softirq_filter",
+	debugfs_create_int("softirq_filter",
 			S_IRUSR|S_IWUSR, filters_dir, &config.softirq_filter);
-	if (!file)
-		goto error;
 
 	ret = latency_tracker_debugfs_setup_wakeup_pipe(tracker);
 	if (ret != 0)

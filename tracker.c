@@ -58,7 +58,11 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(latency_tracker_end);
 EXPORT_TRACEPOINT_SYMBOL_GPL(latency_tracker_ttfb);
 
 static void latency_tracker_enable_timer(struct latency_tracker *tracker);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static void latency_tracker_timer_cb(unsigned long ptr);
+#else
+static void latency_tracker_timer_cb(struct timer_list *timer_p);
+#endif
 static void latency_tracker_timeout_cb(struct latency_tracker *tracker,
 		struct latency_tracker_event *data, int flush);
 
@@ -113,7 +117,7 @@ void discard_event(struct latency_tracker *tracker,
 		queue_delayed_work(tracker->tracker_call_rcu_q,
 				&tracker->tracker_call_rcu_w, 100);
 #else
-	call_rcu_sched(&s->u.urcuhead,
+	call_rcu(&s->u.urcuhead,
 			deferred_latency_tracker_put_event);
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0) */
 }
@@ -128,7 +132,7 @@ void tracker_call_rcu_workqueue(struct work_struct *work)
        tracker = container_of(work, struct latency_tracker,
 		       tracker_call_rcu_w.work);
        list = llist_del_all(&tracker->to_release);
-       synchronize_sched();
+       synchronize_rcu();
        llist_for_each_entry_safe(e, n, list, llist)
 	       wrapper_freelist_put_event(tracker, e);
 }
@@ -195,13 +199,22 @@ void latency_tracker_handle_timeouts(struct latency_tracker *tracker, int flush)
  * The timer handles the garbage collection of the HT and starts
  * the resize work if needed.
  */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static
 void latency_tracker_timer_cb(unsigned long ptr)
 {
 	struct latency_tracker *tracker = (struct latency_tracker *) ptr;
+#else
+static
+void latency_tracker_timer_cb(struct timer_list *timer_p)
+{
+	struct latency_tracker *tracker = from_timer(tracker, timer_p, timer);
+#endif
 	unsigned long flags;
 	u64 now;
 
+	/* FIXME: Commented by Adel because it generates */
 	if (tracker->gc_thresh) {
 		now = trace_clock_monotonic_wrapper();
 		wrapper_ht_gc(tracker, now);
@@ -218,15 +231,23 @@ void latency_tracker_timer_cb(unsigned long ptr)
 static
 void latency_tracker_enable_timer(struct latency_tracker *tracker)
 {
-	del_timer(&tracker->timer);
-	if (tracker->timer_period == 0)
-		return;
 
+	del_timer(&tracker->timer);
+	if (tracker->timer_period == 0) {
+		return;
+	}
+		
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	tracker->timer.function = latency_tracker_timer_cb;
 	tracker->timer.expires = jiffies +
-		wrapper_nsecs_to_jiffies(tracker->timer_period);
+		nsecs_to_jiffies(tracker->timer_period);
 	tracker->timer.data = (unsigned long) tracker;
 	add_timer(&tracker->timer);
+#else
+	int ret = mod_timer(&tracker->timer, jiffies + nsecs_to_jiffies(tracker->timer_period));
+	if (ret)
+		pr_err("%s: Timer firing failed\n", __func__);
+#endif
 }
 
 static
@@ -250,7 +271,7 @@ int latency_tracker_set_gc_thresh(struct latency_tracker *tracker,
 
 	spin_lock_irqsave(&tracker->lock, flags);
 	tracker->gc_thresh = gc_thresh;
-	//latency_tracker_enable_timer(tracker);
+	latency_tracker_enable_timer(tracker);
 	spin_unlock_irqrestore(&tracker->lock, flags);
 
 	return 0;
@@ -260,14 +281,25 @@ EXPORT_SYMBOL_GPL(latency_tracker_set_gc_thresh);
 int latency_tracker_set_timer_period(struct latency_tracker *tracker,
 		uint64_t timer_period)
 {
-	/* FIXME: locking, cancel existing, etc */
+	unsigned long flags;
+	/* FIXME: locking, cancel existing, etc: Done */
+	
 	if (!tracker->timer_period) {
-		tracker->resize_q = create_singlethread_workqueue("latency_tracker");
-		INIT_WORK(&tracker->resize_w, latency_tracker_workqueue);
+		if(!tracker->resize_q) {
+			tracker->resize_q = create_singlethread_workqueue("latency_tracker");
+			INIT_WORK(&tracker->resize_w, latency_tracker_workqueue);
+		}
+		else{
+			flush_workqueue(tracker->resize_q);
+		}
 	}
+
 	tracker->timer_period = timer_period;
 	cds_wfcq_init(&tracker->timeout_head, &tracker->timeout_tail);
+	
+	spin_lock_irqsave(&tracker->lock, flags);
 	latency_tracker_enable_timer(tracker);
+	spin_unlock_irqrestore(&tracker->lock, flags);
 
 	return 0;
 }
@@ -354,6 +386,11 @@ uint64_t latency_tracker_get_timeout(struct latency_tracker *tracker)
 }
 EXPORT_SYMBOL_GPL(latency_tracker_get_timeout);
 
+uint64_t latency_tracker_get_timer_period(struct latency_tracker *tracker)
+{
+	return tracker->timer_period;
+}
+EXPORT_SYMBOL_GPL(latency_tracker_get_timer_period);
 
 uint64_t latency_tracker_get_threshold(struct latency_tracker *tracker)
 {
@@ -401,7 +438,7 @@ int latency_tracker_set_tracking_on(struct latency_tracker *tracker,
 	 * the tracking_on_cb.
 	 */
 	if (cleanup) {
-		synchronize_sched();
+		synchronize_rcu();
 		if (old > 0 && val == 0)
 			latency_tracker_clear_ht(tracker);
 	}
@@ -493,7 +530,11 @@ struct latency_tracker *latency_tracker_create(const char *name)
 		printk("latency_tracker: debugfs creation error\n");
 		goto error_free;
 	}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	init_timer(&tracker->timer);
+#else
+	timer_setup(&tracker->timer, latency_tracker_timer_cb, 0);
+#endif
 	spin_lock_init(&tracker->lock);
 	wrapper_ht_init(tracker);
 	tracker->tracker_call_rcu_q = create_workqueue("tracker_rcu");
@@ -542,7 +583,7 @@ void latency_tracker_destroy(struct latency_tracker *tracker)
 	 * All callers of in/out are required to have preemption disable. We
 	 * issue a synchronize_sched to ensure no more in/out are running.
 	 */
-	synchronize_sched();
+	synchronize_rcu();
 
 	/*
 	 * Remove timer, and make sure currently running timers have completed.
@@ -573,7 +614,7 @@ void latency_tracker_destroy(struct latency_tracker *tracker)
 	 * Wait for all call_rcu_sched issued within wrapper_ht_clear to have
 	 * completed.
 	 */
-	rcu_barrier_sched();
+	rcu_barrier();
 
 	if (tracker->allocated)
 		wrapper_freelist_destroy(tracker);

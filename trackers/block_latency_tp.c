@@ -63,7 +63,7 @@ static int cnt = 0;
 static int rq_cnt = 0;
 
 static struct proc_dir_entry *block_tracker_proc_dentry;
-static const struct file_operations block_tracker_fops;
+static const struct proc_ops block_tracker_fops;
 
 static
 void blk_cb(struct latency_tracker_event_ctx *ctx)
@@ -128,7 +128,7 @@ LT_PROBE_DEFINE(block_rq_issue, struct request_queue *q,
 	rq_cnt++;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-	if ((req_op(rq) == REQ_OP_SCSI_IN) || (req_op(rq) == REQ_OP_SCSI_OUT))
+	if ((req_op(rq) == REQ_OP_DRV_IN) || (req_op(rq) == REQ_OP_DRV_OUT))
 #else
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 #endif
@@ -158,7 +158,7 @@ LT_PROBE_DEFINE(block_rq_complete, struct request_queue *q,
 		return;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-	if ((req_op(rq) == REQ_OP_SCSI_IN) || (req_op(rq) == REQ_OP_SCSI_OUT))
+	if ((req_op(rq) == REQ_OP_DRV_IN) || (req_op(rq) == REQ_OP_DRV_OUT))
 #else
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 #endif
@@ -228,12 +228,12 @@ int tracker_proc_release(struct inode *inode, struct file *filp)
 }
 
 static const
-struct file_operations block_tracker_fops = {
-	.owner = THIS_MODULE,
-	.open = tracker_proc_open,
-	.read = tracker_proc_read,
-	.release = tracker_proc_release,
-	.poll = tracker_proc_poll,
+struct proc_ops block_tracker_fops = {
+	//.owner = THIS_MODULE,
+	.proc_open = tracker_proc_open,
+	.proc_read = tracker_proc_read,
+	.proc_release = tracker_proc_release,
+	.proc_poll = tracker_proc_poll,
 };
 
 static
@@ -274,7 +274,6 @@ int __init block_latency_tp_init(void)
 		kfree(block_priv);
 		goto end;
 	}
-
 
 	ret = 0;
 	goto end;

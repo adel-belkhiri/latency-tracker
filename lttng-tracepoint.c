@@ -1,26 +1,12 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-tracepoint.c
  *
  * LTTng adaptation layer for Linux kernel 3.15+ tracepoints.
  *
  * Copyright (C) 2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/err.h>
 #include <linux/notifier.h>
@@ -30,6 +16,8 @@
 #include <linux/module.h>
 
 #include "lttng-tracepoint.h"
+#include "wrapper/list.h"
+#include "wrapper/tracepoint.h"
 
 /*
  * Protect the tracepoint table. lttng_tracepoint_mutex nests within
@@ -101,6 +89,7 @@ int remove_probe(struct tracepoint_entry *e, void *probe, void *data)
 		kfree(p);
 		return 0;
 	} else {
+		WARN_ON(1);
 		return -ENOENT;
 	}
 }
@@ -118,7 +107,7 @@ struct tracepoint_entry *get_tracepoint(const char *name)
 	u32 hash = jhash(name, strlen(name), 0);
 
 	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
-	hlist_for_each_entry(e, head, hlist) {
+	lttng_hlist_for_each_entry(e, head, hlist) {
 		if (!strcmp(name, e->name))
 			return e;
 	}
@@ -138,7 +127,7 @@ struct tracepoint_entry *add_tracepoint(const char *name)
 	u32 hash = jhash(name, name_len - 1, 0);
 
 	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
-	hlist_for_each_entry(e, head, hlist) {
+	lttng_hlist_for_each_entry(e, head, hlist) {
 		if (!strcmp(name, e->name)) {
 			printk(KERN_NOTICE
 				"tracepoint %s busy\n", name);
@@ -190,13 +179,10 @@ int lttng_tracepoint_probe_register(const char *name, void *probe, void *data)
 	if (ret)
 		goto end;
 	e->refcount++;
-
 	if (e->tp) {
 		ret = tracepoint_probe_register(e->tp, probe, data);
 		WARN_ON_ONCE(ret);
 		ret = 0;
-	} else {
-		ret = -ENOENT;
 	}
 end:
 	mutex_unlock(&lttng_tracepoint_mutex);
@@ -231,7 +217,6 @@ end:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(lttng_tracepoint_probe_unregister);
-
 #ifdef CONFIG_MODULES
 
 static
@@ -245,7 +230,7 @@ int lttng_tracepoint_coming(struct tp_module *tp_mod)
 		struct tracepoint_entry *e;
 		struct lttng_tp_probe *p;
 
-		tp = tp_mod->mod->tracepoints_ptrs[i];
+		tp = tracepoint_ptr_deref(&tp_mod->mod->tracepoints_ptrs[i]);
 		e = get_tracepoint(tp->name);
 		if (!e) {
 			e = add_tracepoint(tp->name);
@@ -272,7 +257,7 @@ int lttng_tracepoint_coming(struct tp_module *tp_mod)
 		}
 	}
 	mutex_unlock(&lttng_tracepoint_mutex);
-	return 0;
+	return NOTIFY_OK;
 }
 
 static
@@ -286,7 +271,7 @@ int lttng_tracepoint_going(struct tp_module *tp_mod)
 		struct tracepoint_entry *e;
 		struct lttng_tp_probe *p;
 
-		tp = tp_mod->mod->tracepoints_ptrs[i];
+		tp = tracepoint_ptr_deref(&tp_mod->mod->tracepoints_ptrs[i]);
 		e = get_tracepoint(tp->name);
 		if (!e || !e->tp)
 			continue;

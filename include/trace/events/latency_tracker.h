@@ -259,11 +259,11 @@ TRACE_EVENT(
 	TP_PROTO(const __user char *data, size_t len),
 	TP_ARGS(data, len),
 	TP_STRUCT__entry(
-		 __array(char, data, LT_MAX_JOBID_SIZE)
+		__array(char, data, LT_MAX_JOBID_SIZE)
 		__field(size_t, len)
 		),
 	TP_fast_assign(
-		memcpy(__entry->data, data, len);
+		copy_from_user(__entry->data, data, len);
 		entry->len = len;
 		),
 	TP_printk("data=%s, len=%zu", __entry->data,  __entry->len)
@@ -278,7 +278,7 @@ TRACE_EVENT(
 		__field(size_t, len)
 		),
 	TP_fast_assign(
-		memcpy(__entry->data, data, len);
+		copy_from_user(__entry->data, data, len);
 		entry->len = len;
 		),
 	TP_printk("data=%s, len=%zu", __entry->data,  __entry->len)

@@ -25,6 +25,7 @@
 #include <linux/blkdev.h>
 #include <linux/irq_work.h>
 #include <linux/poll.h>
+#include <linux/proc_fs.h>
 #include "../latency_tracker.h"
 
 enum wake_reason {
@@ -44,7 +45,7 @@ struct offcpu_tracker {
 	struct proc_dir_entry *proc_dentry;
 };
 
-static const struct file_operations wakeup_tracker_fops;
+static const struct proc_ops wakeup_tracker_fops;
 
 int tracker_proc_release(struct inode *inode, struct file *filp);
 int tracker_proc_open(struct inode *inode, struct file *filp);
@@ -58,12 +59,12 @@ void offcpu_handle_proc(struct offcpu_tracker *wakeup_priv,
 		uint64_t end_ts);
 
 static const
-struct file_operations wakeup_tracker_fops = {
-	.owner = THIS_MODULE,
-	.open = tracker_proc_open,
-	.read = tracker_proc_read,
-	.release = tracker_proc_release,
-	.poll = tracker_proc_poll,
+struct proc_ops wakeup_tracker_fops = {
+	/*.owner = THIS_MODULE,*/
+	.proc_open = tracker_proc_open,
+	.proc_read = tracker_proc_read,
+	.proc_release = tracker_proc_release,
+	.proc_poll = tracker_proc_poll,
 };
 
 #endif /* _TP_BLOCK_LATENCY_H */

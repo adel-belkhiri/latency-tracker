@@ -58,15 +58,15 @@ unsigned int syscall_tracker_proc_poll(struct file *filp, poll_table *wait);
 long syscall_tracker_ioctl(
     struct file *filp, unsigned int cmd, unsigned long arg);
 
-static const struct file_operations syscall_tracker_fops = {
-  .owner = THIS_MODULE,
-  .open = syscall_tracker_proc_open,
-  .read = syscall_tracker_proc_read,
-  .release = syscall_tracker_proc_release,
-  .poll = syscall_tracker_proc_poll,
-  .unlocked_ioctl = syscall_tracker_ioctl,
+static const struct proc_ops syscall_tracker_fops = {
+  //.owner = THIS_MODULE,
+  .proc_open = syscall_tracker_proc_open,
+  .proc_read = syscall_tracker_proc_read,
+  .proc_release = syscall_tracker_proc_release,
+  .proc_poll = syscall_tracker_proc_poll,
+  .proc_ioctl = syscall_tracker_ioctl,
 #ifdef CONFIG_COMPAT
-  .compat_ioctl = syscall_tracker_ioctl,
+  .proc_compat_ioctl = syscall_tracker_ioctl,
 #endif
 };
 

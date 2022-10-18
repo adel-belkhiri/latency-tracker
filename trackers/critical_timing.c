@@ -49,26 +49,21 @@ static int cnt = 0;
 static
 void extract_stack(struct task_struct *p, char *stacktxt, int skip)
 {
-	struct stack_trace trace;
+	//struct stack_trace trace;
 	unsigned long entries[32];
 	char tmp[48];
-	int i, j;
+	int i, j, nr_entries;
 	size_t frame_len;
 
-	trace.nr_entries = 0;
-	trace.max_entries = ARRAY_SIZE(entries);
-	trace.entries = entries;
-	trace.skip = 0;
-
-	save_stack_trace(&trace);
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(entries), skip);
 
 	//	print_stack_trace(&trace, 0);
 
 	j = 0;
-	for (i = 0; i < trace.nr_entries; i++) {
+	for (i = 0; i < nr_entries; i++) {
 		if (i < skip)
 			continue;
-		snprintf(tmp, 48, "%pS\n", (void *) trace.entries[i]);
+		snprintf(tmp, 48, "%pS\n", (void *) entries[i]);
 		frame_len = strlen(tmp);
 		snprintf(stacktxt + j, MAX_STACK_TXT - j, tmp);
 		j += frame_len;

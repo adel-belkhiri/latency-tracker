@@ -79,6 +79,7 @@ static struct latency_tracker *tracker;
 struct sched_key_t {
 	pid_t pid;
 } __attribute__((__packed__));
+
 #undef MAX_KEY_SIZE
 #define MAX_KEY_SIZE sizeof(struct sched_key_t)
 
@@ -101,7 +102,7 @@ static void free_process_val_rcu(struct rcu_head *rcu)
 	kfree(container_of(rcu, struct process_val_t, rcu));
 }
 
-static 
+static
 struct process_val_t* find_process(struct process_key_t *key, u32 hash)
 {
 	struct process_val_t *val;
@@ -159,24 +160,19 @@ void process_unregister(pid_t tgid)
 static
 void get_stack_txt(char *stacktxt, struct task_struct *p)
 {
-	struct stack_trace trace;
+	//struct stack_trace trace;
 	unsigned long entries[32];
 	char tmp[48];
-	int i, j;
+	int i, j, nr_entries;
 	size_t frame_len;
 
-	trace.nr_entries = 0;
-	trace.max_entries = ARRAY_SIZE(entries);
-	trace.entries = entries;
-	trace.skip = 0;
-
-	save_stack_trace(&trace);
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(entries), 0);
 
 	j = 0;
-	for (i = 0; i < trace.nr_entries; i++) {
-		snprintf(tmp, 48, "%pS\n", (void *) trace.entries[i]);
+	for (i = 0; i < nr_entries; i++) {
+		snprintf(tmp, 48, "%pS\n", (void *) entries[i]);
 		frame_len = strlen(tmp);
-		snprintf(stacktxt + j, MAX_STACK_TXT - j, tmp);
+		snprintf(stacktxt + j, MAX_STACK_TXT - j, tmp); 
 		j += frame_len;
 		if (MAX_STACK_TXT - j < 0)
 			return;

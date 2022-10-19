@@ -13,16 +13,13 @@ static int		dropped;
  * file_create() callback.  Creates relay file in debugfs.
  */
 static
-struct dentry *create_buf_file_handler(const char *filename,
-					      struct dentry *parent,
-					      umode_t mode,
-					      struct rchan_buf *buf,
-					      int *is_global)
+struct dentry* create_buf_file_handler(const char* filename, struct dentry* parent,
+	umode_t mode, struct rchan_buf* buf, int* is_global)
 {
-	struct dentry *buf_file;
+	struct dentry* buf_file;
 
 	buf_file = debugfs_create_file(filename, mode, parent, buf,
-				       &relay_file_operations);
+		&relay_file_operations);
 	*is_global = 1;
 
 	return buf_file;
@@ -32,7 +29,7 @@ struct dentry *create_buf_file_handler(const char *filename,
  * file_remove() default callback.  Removes relay file in debugfs.
  */
 static
-int remove_buf_file_handler(struct dentry *dentry)
+int remove_buf_file_handler(struct dentry* dentry)
 {
 	debugfs_remove(dentry);
 	return 0;
@@ -45,14 +42,11 @@ int remove_buf_file_handler(struct dentry *dentry)
  * 2) keep a count of events dropped due to the buffer-full condition.
  */
 static
-int subbuf_start_handler(struct rchan_buf *buf,
-				void *subbuf,
-				void *prev_subbuf,
-				size_t prev_padding)
+int subbuf_start_handler(struct rchan_buf* buf,
+	void* subbuf,
+	void* prev_subbuf,
+	size_t prev_padding)
 {
-	//if (prev_subbuf)
-	//	*((unsigned *)prev_subbuf) = prev_padding;
-
 	if (relay_buf_full(buf)) {
 		if (!suspended) {
 			suspended = 1;
@@ -62,7 +56,8 @@ int subbuf_start_handler(struct rchan_buf *buf,
 
 		/* stop logging */
 		return 0;
-	} else if (suspended) {
+	}
+	else if (suspended) {
 		suspended = 0;
 		printk(KERN_DEBUG "CPU %d buffer no longer full.\n", smp_processor_id());
 	}
@@ -86,12 +81,12 @@ struct rchan_callbacks rchann_callbacks =
 };
 
 
-int userspace_tracker_setup_relay_channel(struct rchan **channel,
-									unsigned int id, struct dentry* debug_dir)
+int span_latency_tracker_setup_relay_channel(struct rchan** channel,
+	unsigned int id, struct dentry* debug_dir)
 {
 	char buf[16];
 
-	if(!debug_dir)
+	if (!debug_dir)
 		return -ENODEV;
 
 	snprintf(buf, sizeof(buf), "rchan-%u-", id);
@@ -106,9 +101,9 @@ int userspace_tracker_setup_relay_channel(struct rchan **channel,
 	return 0;
 }
 
-void userspace_tracker_destroy_channel(struct rchan *channel)
+void span_latency_tracker_destroy_channel(struct rchan* channel)
 {
 	WARN_ON_ONCE(channel == NULL);
-	//if(channel)
-	//	relay_close(channel);
+	if(channel)
+		relay_close(channel);
 }

@@ -57,9 +57,9 @@ obj-m += latency_tracker_self_test.o
 latency_tracker_userspace-objs := trackers/userspace.o wrapper/trace-clock.o tracker_debugfs.o
 obj-m += latency_tracker_userspace.o
 
-latency_tracker_span_latency-objs := wrapper/syscall_name.o trackers/span_latency_relay.o \
+latency_tracker_spans-objs := wrapper/syscall_name.o trackers/span_latency_relay.o \
 	trackers/span_latency_proc.o trackers/span_latency.o wrapper/trace-clock.o tracker_debugfs.o
-obj-m += latency_tracker_span_latency.o
+obj-m += latency_tracker_spans.o
 
 else # KERNELRELEASE
 

@@ -10,7 +10,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  *
- * Inspired from https://github.com/giraldeau/perfuser, by Francis Giraldeau.
+ * Inspired from the work of Francis Giraldeau.
  */
 #ifndef SPAN_LATENCY_TRACKER_ABI_H_
 #define SPAN_LATENCY_TRACKER_ABI_H_
@@ -25,16 +25,16 @@
 #define DEBUGFS_DIR_PATH "channels"
 
 
-enum userspace_module_cmd {
-  USERSPACE_TRACKER_MODULE_REGISTER = 0,
-  USERSPACE_TRACKER_MODULE_UNREGISTER = 1,
-  USERSPACE_TRACKER_MODULE_STACK = 2,
+enum span_latency_module_cmd {
+	SPAN_LATENCY_TRACKER_MODULE_REGISTER = 0,
+	SPAN_LATENCY_TRACKER_MODULE_UNREGISTER = 1,
+	SPAN_LATENCY_TRACKER_MODULE_STACK = 2,
 };
 
 /*
  * Structure to send messages to the kernel module.
  */
-struct userspace_tracker_module_msg {
+struct span_latency_tracker_module_msg {
 	int cmd;                 /* Command */
 	char service_name[SERVICE_NAME_MAX_SIZE]; /* Service name*/
 } __attribute__((packed));
@@ -42,6 +42,6 @@ struct userspace_tracker_module_msg {
 /*
  * Borrow some unused range of LTTng ioctl.
  */
-#define USERSPACE_TRACKER_IOCTL  _IO(0xF6, 0x91)
+#define SPAN_LATENCY_TRACKER_IOCTL  _IO(0xF6, 0x91)
 
 #endif  /* SPAN_LATENCY_TRACKER_ABI_H_  */

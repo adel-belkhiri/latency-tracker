@@ -12,6 +12,7 @@
 
 static DEFINE_HASHTABLE(process_map, 3);
 
+
 static void free_process_val_rcu(struct rcu_head* rcu)
 {
 	kfree(container_of(rcu, struct process_val_t, rcu));
@@ -31,13 +32,13 @@ struct process_val_t* find_process(struct process_key_t* key, u32 hash)
 
 void free_process_map()
 {
-	struct process_val_t *process_val;
+	struct process_val_t* process_val;
 	int bkt;
 
 	rcu_read_lock();
 	hash_for_each_rcu(process_map, bkt, process_val, hlist) {
 		/* destroy the relay channel */
-		userspace_tracker_destroy_channel(process_val->rchann);
+		span_latency_tracker_destroy_channel(process_val->rchann);
 
 		hash_del_rcu(&process_val->hlist);
 		call_rcu(&process_val->rcu, free_process_val_rcu);
@@ -45,11 +46,12 @@ void free_process_map()
 	rcu_read_unlock();
 }
 
-void process_register(pid_t tgid, const char* service_name, struct userspace_tracker *tracker_priv)
+void process_register(pid_t tgid, const char* service_name, struct span_latency_tracker* tracker_priv)
 {
 	u32 hash;
 	struct process_key_t key;
 	struct process_val_t* val;
+	int ret;
 
 	key.tgid = tgid;
 	hash = jhash(&key, sizeof(key), 0);
@@ -66,20 +68,21 @@ void process_register(pid_t tgid, const char* service_name, struct userspace_tra
 	strncpy(val->service_name, service_name, SERVICE_NAME_MAX_SIZE);
 	val->tgid = tgid;
 
-	if(userspace_tracker_setup_relay_channel(&(val->rchann), tgid, tracker_priv->debug_dentry))
-		printk(KERN_WARNING "userspace tracker: Error setting a relay channel for process %d",
-		tgid);
+	ret = span_latency_tracker_setup_relay_channel(&(val->rchann), tgid, tracker_priv->debug_dentry);
+	if (ret)
+		printk(KERN_WARNING "span latency tracker: Error setting up a relay channel for process %d",
+			tgid);
 
 	hash_add_rcu(process_map, &val->hlist, hash);
-	printk("userspace tracker: registered a process (pid: %d, service name: %s)",
+	printk("span latency tracker: registered a process (pid: %d, service name: %s)",
 		tgid, service_name);
 }
 
 void process_unregister(pid_t tgid)
 {
-	u32 hash;
 	struct process_key_t key;
 	struct process_val_t* val;
+	u32 hash;
 
 	key.tgid = tgid;
 	hash = jhash(&key, sizeof(key), 0);
@@ -87,7 +90,7 @@ void process_unregister(pid_t tgid)
 	rcu_read_lock();
 	val = find_process(&key, hash);
 	if (val) {
-		userspace_tracker_destroy_channel(val->rchann);
+		span_latency_tracker_destroy_channel(val->rchann);
 
 		hash_del_rcu(&val->hlist);
 		call_rcu(&val->rcu, free_process_val_rcu);
@@ -96,64 +99,61 @@ void process_unregister(pid_t tgid)
 	rcu_read_unlock();
 }
 
-int userspace_tracker_proc_open(struct inode *inode, struct file *filp)
+int span_latency_tracker_proc_open(struct inode* inode, struct file* filp)
 {
-  struct userspace_tracker *tracker_priv = PDE_DATA(inode);
-  int ret;
+	struct span_latency_tracker* tracker_priv = PDE_DATA(inode);
+	int ret;
 
-  filp->private_data = tracker_priv;
-  ret = try_module_get(THIS_MODULE);
-  if (!ret)
-    return -1;
+	filp->private_data = tracker_priv;
+	ret = try_module_get(THIS_MODULE);
+	if (!ret)
+		return -1;
 
-  return 0;
+	return 0;
 }
 
-long userspace_tracker_proc_ioctl(
+long span_latency_tracker_proc_ioctl(
 	struct file* filp, unsigned int cmd, unsigned long arg)
 {
-	struct userspace_tracker *tracker_priv = filp->private_data;
-	struct userspace_tracker_module_msg msg;
+	struct span_latency_tracker* tracker_priv = filp->private_data;
+	struct span_latency_tracker_module_msg msg;
 	int ret = 0;
-	void __user* umsg = (void*)arg;
+	void __user* umsg = (void*) arg;
 
-	if (cmd !=  USERSPACE_TRACKER_IOCTL)
+	if (cmd != SPAN_LATENCY_TRACKER_IOCTL)
 		return -ENOIOCTLCMD;
 
 	if (copy_from_user(&msg, umsg, sizeof(msg)))
 		return -EFAULT;
 
 	switch (msg.cmd) {
-		case USERSPACE_TRACKER_MODULE_REGISTER:
-			process_register(current->tgid, msg.service_name, tracker_priv);
-			break;
-		case USERSPACE_TRACKER_MODULE_UNREGISTER:
-			process_unregister(current->tgid);
-			break;
-		default:
-			ret = -ENOTSUPP;
-			break;
+	case SPAN_LATENCY_TRACKER_MODULE_REGISTER:
+		process_register(current->tgid, msg.service_name, tracker_priv);
+		break;
+	case SPAN_LATENCY_TRACKER_MODULE_UNREGISTER:
+		process_unregister(current->tgid);
+		break;
+	default:
+		ret = -ENOTSUPP;
+		break;
 	}
 
 	return ret;
 }
 
-int userspace_tracker_proc_release(struct inode *inode, struct file *filp)
+int span_latency_tracker_proc_release(struct inode* inode, struct file* filp)
 {
-//  struct syscall_tracker *tracker_priv = filp->private_data;
-
-//  tracker_priv->readers--;
-  module_put(THIS_MODULE);
-  return 0;
+	module_put(THIS_MODULE);
+	return 0;
 }
 
-int userspace_tracker_setup_proc_priv(struct userspace_tracker* tracker_priv)
+int span_latency_tracker_setup_proc_priv(struct span_latency_tracker* tracker_priv)
 {
 	int ret = 0;
 
 	tracker_priv->proc_dentry = proc_create_data(USERSPACE_TRACKER_PROC,
 		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-		NULL, &userspace_tracker_fops, tracker_priv);
+		NULL, &span_latency_tracker_fops, tracker_priv);
 
 	if (!tracker_priv->proc_dentry) {
 		printk(KERN_ERR "Error creating userspace tracker control file.\n");
@@ -162,9 +162,10 @@ int userspace_tracker_setup_proc_priv(struct userspace_tracker* tracker_priv)
 	return ret;
 }
 
-int userspace_tracker_setup_debug_priv(struct userspace_tracker* tracker_priv, struct dentry* dir)
+int span_latency_tracker_setup_debug_priv(struct span_latency_tracker* tracker_priv,
+	struct dentry* dir)
 {
-	if(dir == NULL) {
+	if (dir == NULL) {
 		printk(KERN_WARNING "Error creating tracker debugfs file.\n");
 		return -ENOMEM;
 	}

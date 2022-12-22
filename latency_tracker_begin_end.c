@@ -87,6 +87,7 @@ ssize_t lttng_logger_write(struct file *file, const char __user *user_buf,
 		trace_latency_tracker_begin(user_buf, count);
 	else
 		trace_latency_tracker_end(user_buf, count);
+
 	written = count;
 	*ppos += written;
 

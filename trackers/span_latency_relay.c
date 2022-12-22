@@ -3,8 +3,8 @@
 //#include <linux/debugfs.h>
 #include "span_latency_relay.h"
 
-static size_t	subbuf_size = 262144;
-static size_t	n_subbufs = 4;
+static size_t	subbuf_size = 8225;
+static size_t	n_subbufs = 4096;
 static int		suspended;
 static int		dropped;
 

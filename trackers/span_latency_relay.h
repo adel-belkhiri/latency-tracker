@@ -8,12 +8,13 @@
 
 struct syscall_desc {
 	char name[SYSCALL_NAME_MAX_SIZE];
-	uint16_t nr;
-	uint64_t start;
-	uint64_t end;
+	uint64_t start_system;
+	uint64_t start_steady;
+	uint64_t end_steady;
 };
 
 struct syscall {
+	uint16_t id;
 	struct syscall_desc desc;
 	struct list_head llist;
 };

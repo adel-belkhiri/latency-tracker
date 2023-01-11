@@ -28,7 +28,7 @@
 #include "rculfhash-internal.h"
 #include "urcu/wfcqueue.h"
 
-#define LT_DEFAULT_STARTUP_ALLOC_EVENTS 100
+#define LT_DEFAULT_STARTUP_ALLOC_EVENTS 1000
 #define LT_DEFAULT_THRESHOLD 1000000
 
 struct latency_tracker_event_ctx;

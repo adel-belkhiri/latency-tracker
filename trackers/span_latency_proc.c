@@ -130,16 +130,17 @@ void process_unregister(pid_t pid)
 	val = find_process(&key, hash);
 	if (val) {
 		/* if it is the main thread, then unregister all its children and release the relay channel */
+		//TODO: this generates a rcu warning
 		if (pid == val->tgid) {
-			hash_for_each_rcu(process_map, bkt, child_val, hlist) {
-				if (pid == child_val->tgid) {
-					child_pid = child_val->pid;
+			//hash_for_each_rcu(process_map, bkt, child_val, hlist) {
+			//	if (pid == child_val->tgid) {
+			//		child_pid = child_val->pid;
 
-					hash_del_rcu(&child_val->hlist);
-					call_rcu(&child_val->rcu, free_process_val_rcu);
-					printk("span latency tracker: unregistered a process (pid: %d)\n", child_pid);
-				}
-			}
+			//		hash_del_rcu(&child_val->hlist);
+			//		call_rcu(&child_val->rcu, free_process_val_rcu);
+			//		printk("span latency tracker: unregistered a process (pid: %d)\n", child_pid);
+			//	}
+			//}
 
 			span_latency_tracker_destroy_channel(val->rchann);
 		}
